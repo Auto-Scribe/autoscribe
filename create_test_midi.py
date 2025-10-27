@@ -108,3 +108,71 @@ def create_complex_example():
     print(f"✓ Created {output_path} - melody with bass and harmony")
 
     return midi
+def create_rhythm_test():
+    """file with various note durations for rhythm testing"""
+
+    midi = pretty_midi.PrettyMIDI()
+    piano = pretty_midi.Instrument(program=0, name="Piano")
+
+    # Various note durations
+    note_data = [
+        # (pitch, start, duration, velocity)
+        (60, 0.0, 1.0, 80),  # Whole note
+        (62, 1.0, 0.5, 80),  # Half note
+        (64, 1.5, 0.5, 80),  # Half note
+        (65, 2.0, 0.25, 80),  # Quarter note
+        (67, 2.25, 0.25, 80),  # Quarter note
+        (69, 2.5, 0.25, 80),  # Quarter note
+        (71, 2.75, 0.25, 80),  # Quarter note
+        (72, 3.0, 0.125, 90),  # Eighth note
+        (71, 3.125, 0.125, 90),
+        (69, 3.25, 0.125, 90),
+        (67, 3.375, 0.125, 90),
+        (65, 3.5, 0.125, 90),
+        (64, 3.625, 0.125, 90),
+        (62, 3.75, 0.125, 90),
+        (60, 3.875, 0.125, 90),
+    ]
+
+    for pitch, start, duration, velocity in note_data:
+        note = pretty_midi.Note(
+            velocity=velocity, pitch=pitch, start=start, end=start + duration
+        )
+        piano.notes.append(note)
+
+    midi.instruments.append(piano)
+
+    output_path = "test_rhythm.mid"
+    midi.write(output_path)
+    print(f"✓ Created {output_path} - various note durations")
+
+    return midi
+
+
+def create_out_of_range_test():
+    """file with notes outside piano range for error testing"""
+
+    midi = pretty_midi.PrettyMIDI()
+    piano = pretty_midi.Instrument(program=0, name="Piano")
+
+    # Mix of normal and out-of-range notes
+    notes = [
+        (20, 0.0, 0.5, 80),  # Below piano range (A0 is 21)
+        (60, 0.5, 0.5, 80),  # Normal
+        (109, 1.0, 0.5, 80),  # Above piano range (C8 is 108)
+        (72, 1.5, 0.5, 80),  # Normal
+    ]
+
+    for pitch, start, duration, velocity in notes:
+        note = pretty_midi.Note(
+            velocity=velocity, pitch=pitch, start=start, end=start + duration
+        )
+        piano.notes.append(note)
+
+    midi.instruments.append(piano)
+
+    output_path = "test_out_of_range.mid"
+    midi.write(output_path)
+    print(f"✓ Created {output_path} - includes notes outside piano range")
+
+    return midi
