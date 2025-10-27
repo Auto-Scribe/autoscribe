@@ -188,3 +188,56 @@ def test_different_resolutions(midi_path: str):
     axes[-1].set_xlabel("Time (seconds)")
     plt.tight_layout()
     plt.show()
+
+def main():
+    """Main entry point."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Test Rhythm Quantizer")
+    parser.add_argument("midi_file", help="Path to MIDI file")
+    parser.add_argument(
+        "-g",
+        "--grid",
+        default="16th",
+        choices=["8th", "16th", "32nd", "triplet"],
+        help="Grid resolution (default: 16th)",
+    )
+    parser.add_argument(
+        "-s",
+        "--strength",
+        type=float,
+        default=1.0,
+        help="Quantization strength 0.0-1.0 (default: 1.0)",
+    )
+    parser.add_argument(
+        "--compare-resolutions",
+        action="store_true",
+        help="Compare different grid resolutions",
+    )
+
+    args = parser.parse_args()
+
+    # Check file
+    if not Path(args.midi_file).exists():
+        print(f"File not found: {args.midi_file}")
+        return 1
+
+    try:
+        if args.compare_resolutions:
+            test_different_resolutions(args.midi_file)
+        else:
+            analyze_and_quantize(args.midi_file, args.grid, args.strength)
+
+        print("\nQuantization test completed successfully.")
+        return 0
+
+    except Exception as e:
+        print(f"\nError: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
