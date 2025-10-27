@@ -166,3 +166,89 @@ class RhythmQuantizer:
         )
 
         return max(0.0, quantized_time)  # Ensure non-negative
+
+    def _apply_swing(
+        self, time: float, grid_duration: float, beat_duration: float
+    ) -> float:
+        """
+        Apply swing timing adjustment.
+
+        Swing delays every second note in a pair (e.g., 8th notes).
+
+        Args:
+            time: Time to adjust
+            grid_duration: Grid spacing
+            beat_duration: Beat duration
+
+        Returns:
+            Time with swing applied
+        """
+        # Determine position within beat pair
+        beat_pair_duration = grid_duration * 2
+        position_in_pair = (time % beat_pair_duration) / beat_pair_duration
+
+        # Apply swing to second note in pair
+        if 0.4 < position_in_pair < 0.6:  # Second note
+            swing_delay = self.config.swing * grid_duration
+            return time + swing_delay
+
+        return time
+
+    def analyze_timing_distribution(self, piano_roll: PianoRoll) -> dict:
+        """
+        Analyze how far notes are from grid positions.
+        Useful for determining if quantization is needed.
+
+        Args:
+            piano_roll: PianoRoll to analyze
+
+        Returns:
+            Dictionary with timing statistics
+        """
+        if not piano_roll.notes:
+            return {}
+
+        beat_duration = 60.0 / piano_roll.tempo
+        grid_size_beats = self.GRID_SIZES[self.config.grid_resolution]
+        grid_duration = beat_duration * grid_size_beats
+
+        # Calculate deviation from grid for each note
+        deviations = []
+        for note in piano_roll.notes:
+            # Distance to nearest grid point
+            grid_position = round(note.start / grid_duration)
+            grid_time = grid_position * grid_duration
+            deviation = abs(note.start - grid_time)
+            deviations.append(deviation)
+
+        deviations = np.array(deviations)
+
+        return {
+            "mean_deviation": float(np.mean(deviations)),
+            "max_deviation": float(np.max(deviations)),
+            "std_deviation": float(np.std(deviations)),
+            "grid_duration": grid_duration,
+            "notes_analyzed": len(deviations),
+            "percent_on_grid": float(
+                np.sum(deviations < 0.001) / len(deviations) * 100
+            ),
+        }
+
+
+def quantize_piano_roll(
+    piano_roll: PianoRoll, grid_resolution: str = "16th", strength: float = 1.0
+) -> PianoRoll:
+    """
+    Convenience function to quantize a piano roll.
+
+    Args:
+        piano_roll: PianoRoll to quantize
+        grid_resolution: Grid size ('8th', '16th', '32nd', 'triplet')
+        strength: Quantization strength (0.0 to 1.0)
+
+    Returns:
+        Quantized PianoRoll
+    """
+    config = QuantizationConfig(grid_resolution=grid_resolution, strength=strength)
+    quantizer = RhythmQuantizer(config)
+    return quantizer.quantize(piano_roll)
