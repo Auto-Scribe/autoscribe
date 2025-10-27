@@ -119,3 +119,71 @@ def analyze_midi(midi_path: str):
 
         traceback.print_exc()
         return None
+    
+def compare_notes(piano_roll, start_time=0, duration=2):
+    """
+    Show notes in a time window.
+    """
+    end_time = start_time + duration
+    notes_in_window = piano_roll.get_notes_in_range(start_time, end_time)
+
+    print(f"\n--- Notes between {start_time:.2f}s and {end_time:.2f}s ---")
+    print(f"Found {len(notes_in_window)} notes:")
+
+    for note in notes_in_window:
+        print(f"  {note}")
+
+    # Group notes that start at the same time (within 10ms)
+    if notes_in_window:
+        print("\nSimultaneous note groups (within 10ms):")
+        processed = set()
+        for i, note in enumerate(notes_in_window):
+            if i in processed:
+                continue
+
+            simultaneous = [note]
+            for j, other in enumerate(notes_in_window[i + 1 :], i + 1):
+                if abs(other.start - note.start) < 0.01:
+                    simultaneous.append(other)
+                    processed.add(j)
+
+            if len(simultaneous) > 1:
+                pitches = [n.midi_note_name for n in simultaneous]
+                print(f"  Time {note.start:.3f}s: {pitches}")
+
+
+def main():
+    """Main entry point."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Test MIDI Parser")
+    parser.add_argument("midi_file", help="Path to MIDI file")
+    parser.add_argument("--no-viz", action="store_true", help="Skip visualization")
+    parser.add_argument(
+        "--analyze-window",
+        nargs=2,
+        type=float,
+        metavar=("START", "DURATION"),
+        help="Analyze time window (start, duration in seconds)",
+    )
+
+    args = parser.parse_args()
+
+    if not Path(args.midi_file).exists():
+        print(f"File not found: {args.midi_file}")
+        return 1
+
+    piano_roll = analyze_midi(args.midi_file)
+    if piano_roll is None:
+        return 1
+
+    if args.analyze_window:
+        start, duration = args.analyze_window
+        compare_notes(piano_roll, start, duration)
+
+    print("\nParser test completed successfully.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
