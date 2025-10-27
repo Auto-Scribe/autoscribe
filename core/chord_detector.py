@@ -177,3 +177,159 @@ class ChordDetector:
                     return f"{chord_type} (inversion)"
 
         return "unknown"
+
+    def _merge_arpeggios(self, chords: List[Chord]) -> List[Chord]:
+        """
+        Merge rapidly played broken chords (arpeggios) into single chords.
+
+        Args:
+            chords: List of detected chords
+
+        Returns:
+            List with arpeggios merged
+        """
+        if not chords:
+            return chords
+
+        merged = []
+        current_group = [chords[0]]
+
+        for chord in chords[1:]:
+            # Check if this chord is close enough to merge
+            last_chord_time = current_group[-1].start
+            if chord.start - last_chord_time <= self.config.arpeggio_threshold:
+                current_group.append(chord)
+            else:
+                # Merge current group and start new one
+                merged.append(self._merge_chord_group(current_group))
+                current_group = [chord]
+
+        # Don't forget the last group
+        merged.append(self._merge_chord_group(current_group))
+
+        return merged
+
+    def _merge_chord_group(self, chord_group: List[Chord]) -> Chord:
+        """
+        Merge multiple chords into one.
+
+        Args:
+            chord_group: Chords to merge
+
+        Returns:
+            Single merged chord
+        """
+        if len(chord_group) == 1:
+            return chord_group[0]
+
+        # Combine all notes from all chords
+        all_notes = []
+        for chord in chord_group:
+            all_notes.extend(chord.notes)
+
+        # Use earliest start time
+        earliest_start = min(c.start for c in chord_group)
+
+        # Adjust note start times to earliest
+        adjusted_notes = []
+        for note in all_notes:
+            adjusted_note = Note(
+                pitch=note.pitch,
+                start=earliest_start,
+                end=note.end,
+                velocity=note.velocity,
+                note_type=note.note_type,
+            )
+            adjusted_notes.append(adjusted_note)
+
+        return Chord(notes=adjusted_notes)
+
+    def analyze_piano_roll(self, piano_roll: PianoRoll) -> dict:
+        """
+        Analyze chord content in a piano roll.
+
+        Args:
+            piano_roll: PianoRoll to analyze
+
+        Returns:
+            Dictionary with chord statistics
+        """
+        chords = self.detect_chords(piano_roll)
+
+        if not chords:
+            return {
+                "total_chords": 0,
+                "chord_types": {},
+                "avg_chord_size": 0,
+                "polyphony_ratio": 0,
+            }
+
+        # Count chord types
+        chord_type_counts = defaultdict(int)
+        chord_sizes = []
+
+        for chord in chords:
+            chord_type = self.identify_chord_type(chord)
+            chord_type_counts[chord_type] += 1
+            chord_sizes.append(len(chord.notes))
+
+        # Calculate polyphony ratio
+        total_notes = len(piano_roll.notes)
+        notes_in_chords = sum(len(c.notes) for c in chords)
+        polyphony_ratio = notes_in_chords / total_notes if total_notes > 0 else 0
+
+        return {
+            "total_chords": len(chords),
+            "chord_types": dict(chord_type_counts),
+            "avg_chord_size": sum(chord_sizes) / len(chord_sizes) if chord_sizes else 0,
+            "chord_size_range": (
+                (min(chord_sizes), max(chord_sizes)) if chord_sizes else (0, 0)
+            ),
+            "polyphony_ratio": polyphony_ratio,
+            "single_notes": total_notes - notes_in_chords,
+        }
+
+
+def detect_chords(
+    piano_roll: PianoRoll, simultaneity_threshold: float = 0.05
+) -> List[Chord]:
+    """
+    Convenience function to detect chords in a piano roll.
+
+    Args:
+        piano_roll: PianoRoll to analyze
+        simultaneity_threshold: Time window for simultaneous notes (seconds)
+
+    Returns:
+        List of Chord objects
+    """
+    config = ChordDetectionConfig(simultaneity_threshold=simultaneity_threshold)
+    detector = ChordDetector(config)
+    return detector.detect_chords(piano_roll)
+
+
+def get_chord_name(chord: Chord) -> str:
+    """
+    Get a human-readable name for a chord.
+
+    Args:
+        chord: Chord to name
+
+    Returns:
+        Chord name (e.g., "C major", "Am7")
+    """
+    detector = ChordDetector()
+    chord_type = detector.identify_chord_type(chord)
+
+    if not chord_type or chord_type == "unknown":
+        # Just list the notes
+        note_names = [n.midi_note_name for n in chord.notes]
+        return f"Chord: {', '.join(note_names)}"
+
+    # Get root note name
+    root_pitch = chord.root_pitch or min(n.pitch for n in chord.notes)
+    root_name = Note(pitch=root_pitch, start=0, end=1).midi_note_name[
+        :-1
+    ]  # Remove octave
+
+    return f"{root_name} {chord_type}"
