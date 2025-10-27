@@ -63,3 +63,59 @@ def visualize_piano_roll(piano_roll, duration=None, title="Piano Roll Visualizat
 
     plt.tight_layout()
     plt.show()
+
+def analyze_midi(midi_path: str):
+    """
+    Load and analyze a MIDI file.
+    """
+    print(f"Loading MIDI file: {midi_path}")
+    print("=" * 60)
+
+    try:
+        piano_roll = load_midi(midi_path)
+
+        print("\n--- Detailed Analysis ---")
+        stats = piano_roll.get_statistics()
+
+        print("\nBasic Info:")
+        print(f"  Total Notes: {stats['note_count']}")
+        print(f"  Duration: {stats['duration']:.2f} seconds")
+        print(f"  Tempo: {stats['tempo']:.1f} BPM")
+        print(
+            f"  Time Signature: {stats['time_signature'][0]}/{stats['time_signature'][1]}"
+        )
+
+        print("\nPitch Analysis:")
+        print(f"  Range: {stats['pitch_range'][0]} - {stats['pitch_range'][1]}")
+        print(f"  Average Pitch: {stats['avg_pitch']:.1f}")
+
+        print("\nTiming Analysis:")
+        print(f"  Average Note Duration: {stats['avg_duration']:.3f} seconds")
+        print(f"  Average Velocity: {stats['avg_velocity']:.1f}")
+
+        print("\nFirst 5 Notes:")
+        for i, note in enumerate(piano_roll.notes[:5], 1):
+            print(f"  {i}. {note}")
+
+        out_of_range = [n for n in piano_roll.notes if not n.is_piano_range]
+        if out_of_range:
+            print(f"\nWarning: {len(out_of_range)} notes outside piano range")
+
+        print("\nGenerating visualization...")
+        visualize_piano_roll(
+            piano_roll,
+            duration=min(10, stats["duration"]),
+            title=f"Piano Roll: {Path(midi_path).name}",
+        )
+
+        return piano_roll
+
+    except MidiParserError as e:
+        print(f"\nError parsing MIDI: {e}")
+        return None
+    except Exception as e:
+        print(f"\nUnexpected error: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return None
