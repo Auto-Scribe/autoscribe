@@ -221,3 +221,74 @@ class MidiParser:
             default_ts = (4, 4)
             self._add_warning(f"No time signature found, using default: 4/4")
             return default_ts
+
+    def _extract_key_signature(self, midi: pretty_midi.PrettyMIDI) -> int:
+        """Extract key signature from MIDI file"""
+        key_signatures = midi.key_signature_changes
+
+        if key_signatures:
+            # Use first key signature
+            key_sig = key_signatures[0].key_number
+
+            # Warn if multiple key signatures
+            if len(key_signatures) > 1:
+                self._add_warning(
+                    f"MIDI contains {len(key_signatures)} key signature changes. "
+                    f"Using first key signature"
+                )
+
+            return key_sig
+        else:
+            # Default to C major (0)
+            self._add_warning("No key signature found, using default: C major")
+            return 0
+
+    def _add_warning(self, message: str):
+        """Add warning to list and print"""
+        self.warnings_list.append(message)
+        warnings.warn(f"[MidiParser] {message}", UserWarning)
+
+    def _log_statistics(self, piano_roll: PianoRoll):
+        """Log statistics about loaded MIDI"""
+        stats = piano_roll.get_statistics()
+
+        print(f"\n--- MIDI Loaded Successfully ---")
+        print(f"Notes: {stats['note_count']}")
+        print(f"Duration: {stats['duration']:.2f} seconds")
+        print(
+            f"Pitch Range: {stats['pitch_range'][0]}-{stats['pitch_range'][1]} "
+            f"({Note(pitch=stats['pitch_range'][0], start=0, end=1).midi_note_name} - "
+            f"{Note(pitch=stats['pitch_range'][1], start=0, end=1).midi_note_name})"
+        )
+        print(f"Tempo: {stats['tempo']:.1f} BPM")
+        print(
+            f"Time Signature: {stats['time_signature'][0]}/{stats['time_signature'][1]}"
+        )
+        print(f"Average Velocity: {stats['avg_velocity']:.1f}")
+
+        if self.warnings_list:
+            print(f"\nWarnings: {len(self.warnings_list)}")
+            for i, warning in enumerate(self.warnings_list[:3], 1):
+                print(f"  {i}. {warning}")
+            if len(self.warnings_list) > 3:
+                print(f"  ... and {len(self.warnings_list) - 3} more")
+        print("--------------------------------\n")
+
+    def get_warnings(self) -> List[str]:
+        """Get list of warnings from last parse operation"""
+        return self.warnings_list.copy()
+
+
+def load_midi(path: str, **kwargs) -> PianoRoll:
+    """
+    Convenience function to load a MIDI file.
+
+    Args:
+        path: Path to MIDI file
+        **kwargs: Additional arguments passed to MidiParser
+
+    Returns:
+        PianoRoll object
+    """
+    parser = MidiParser(**kwargs)
+    return parser.load(path)
