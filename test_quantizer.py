@@ -82,3 +82,109 @@ def show_timing_shifts(original: "PianoRoll", quantized: "PianoRoll"):
             f"{orig_note.start:<15.4f} {quant_note.start:<15.4f} "
             f"{shift_ms:>+11.2f} {orig_note.midi_note_name:<8}"
         )
+
+def analyze_and_quantize(midi_path: str, grid_resolution: str = "16th", strength: float = 1.0):
+    """
+    Load, analyze, quantize, and compare a MIDI file.
+    """
+    print(f"\n{'='*70}")
+    print("Testing Rhythm Quantization")
+    print(f"{'='*70}")
+    print(f"File: {Path(midi_path).name}")
+    print(f"Grid Resolution: {grid_resolution}")
+    print(f"Strength: {strength}")
+
+    # Load MIDI
+    print("\n--- Loading Original MIDI ---")
+    original = load_midi(midi_path)
+
+    # Analyze before quantization
+    config = QuantizationConfig(grid_resolution=grid_resolution, strength=strength)
+    quantizer = RhythmQuantizer(config)
+
+    print("\n--- Timing Analysis (Before Quantization) ---")
+    timing_stats = quantizer.analyze_timing_distribution(original)
+    print(f"Mean deviation from grid: {timing_stats['mean_deviation']*1000:.2f} ms")
+    print(f"Max deviation from grid: {timing_stats['max_deviation']*1000:.2f} ms")
+    print(f"Std deviation: {timing_stats['std_deviation']*1000:.2f} ms")
+    print(f"Notes already on grid: {timing_stats['percent_on_grid']:.1f}%")
+    print(f"Grid spacing: {timing_stats['grid_duration']*1000:.1f} ms")
+
+    # Quantize
+    print("\n--- Quantizing ---")
+    quantized = quantizer.quantize(original)
+    print(f"Quantized {len(quantized.notes)} notes")
+
+    # Show timing shifts
+    show_timing_shifts(original, quantized)
+
+    # Analyze after quantization
+    print("\n--- Timing Analysis (After Quantization) ---")
+    post_stats = quantizer.analyze_timing_distribution(quantized)
+    print(f"Mean deviation from grid: {post_stats['mean_deviation']*1000:.2f} ms")
+    print(f"Notes on grid: {post_stats['percent_on_grid']:.1f}%")
+
+    # Visualize
+    print("\n--- Generating Visualization ---")
+    visualize_quantization_comparison(
+        original, quantized, max_duration=min(10, original.get_duration())
+    )
+
+    return original, quantized
+
+
+def test_different_resolutions(midi_path: str):
+    """
+    Compare several grid resolutions.
+    """
+    print(f"\n{'='*70}")
+    print("Testing Different Grid Resolutions")
+    print(f"{'='*70}")
+
+    original = load_midi(midi_path)
+    resolutions = ["8th", "16th", "32nd"]
+
+    fig, axes = plt.subplots(len(resolutions) + 1, 1, figsize=(14, 12), sharex=True)
+    max_duration = min(5.0, original.get_duration())
+
+    # Original
+    ax = axes[0]
+    for note in original.notes:
+        if note.start < max_duration:
+            ax.add_patch(
+                plt.Rectangle(
+                    (note.start, note.pitch),
+                    note.duration,
+                    0.8,
+                    facecolor="gray",
+                    edgecolor="black",
+                    alpha=0.6,
+                )
+            )
+    ax.set_title("Original", fontweight="bold")
+    ax.set_ylabel("Pitch")
+    ax.grid(True, alpha=0.3)
+
+    # Each resolution
+    for idx, resolution in enumerate(resolutions, 1):
+        quantized = quantize_piano_roll(original, grid_resolution=resolution)
+        ax = axes[idx]
+        for note in quantized.notes:
+            if note.start < max_duration:
+                ax.add_patch(
+                    plt.Rectangle(
+                        (note.start, note.pitch),
+                        note.duration,
+                        0.8,
+                        facecolor="steelblue",
+                        edgecolor="black",
+                        alpha=0.6,
+                    )
+                )
+        ax.set_title(f"Quantized to {resolution} notes", fontweight="bold")
+        ax.set_ylabel("Pitch")
+        ax.grid(True, alpha=0.3)
+
+    axes[-1].set_xlabel("Time (seconds)")
+    plt.tight_layout()
+    plt.show()
