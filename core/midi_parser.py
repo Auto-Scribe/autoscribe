@@ -176,3 +176,48 @@ class MidiParser:
                     continue
 
         return notes
+    
+    def _extract_tempo(self, midi: pretty_midi.PrettyMIDI) -> float:
+        """Extract tempo from MIDI file"""
+        tempo_changes = midi.get_tempo_changes()
+
+        if len(tempo_changes[1]) > 0:
+            # Use first tempo
+            tempo = float(tempo_changes[1][0])
+
+            # Warn if multiple tempo changes
+            if len(tempo_changes[1]) > 1:
+                self._add_warning(
+                    f"MIDI contains {len(tempo_changes[1])} tempo changes. "
+                    f"Using first tempo: {tempo:.1f} BPM"
+                )
+
+            return tempo
+        else:
+            # Default tempo
+            default_tempo = 120.0
+            self._add_warning(f"No tempo found, using default: {default_tempo} BPM")
+            return default_tempo
+
+    def _extract_time_signature(self, midi: pretty_midi.PrettyMIDI) -> Tuple[int, int]:
+        """Extract time signature from MIDI file"""
+        time_signatures = midi.time_signature_changes
+
+        if time_signatures:
+            # Use first time signature
+            ts = time_signatures[0]
+            time_sig = (ts.numerator, ts.denominator)
+
+            # Warn if multiple time signatures
+            if len(time_signatures) > 1:
+                self._add_warning(
+                    f"MIDI contains {len(time_signatures)} time signature changes. "
+                    f"Using first: {time_sig[0]}/{time_sig[1]}"
+                )
+
+            return time_sig
+        else:
+            # Default to 4/4
+            default_ts = (4, 4)
+            self._add_warning(f"No time signature found, using default: 4/4")
+            return default_ts
