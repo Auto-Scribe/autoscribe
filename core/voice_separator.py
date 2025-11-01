@@ -217,3 +217,128 @@ class VoiceSeparator:
             velocity=note.velocity,
             note_type=note_type,
         )
+
+    def analyze_voices(self, piano_roll: PianoRoll) -> dict:
+        """
+        Analyze voice distribution in a piano roll.
+
+        Args:
+            piano_roll: PianoRoll to analyze
+
+        Returns:
+            Dictionary with voice statistics
+        """
+        melody, harmony, bass = self.separate_voices(piano_roll)
+
+        total_notes = len(piano_roll.notes)
+
+        if total_notes == 0:
+            return {
+                "total_notes": 0,
+                "melody_notes": 0,
+                "harmony_notes": 0,
+                "bass_notes": 0,
+            }
+
+        melody_range = melody.get_pitch_range() if melody.notes else (0, 0)
+        harmony_range = harmony.get_pitch_range() if harmony.notes else (0, 0)
+        bass_range = bass.get_pitch_range() if bass.notes else (0, 0)
+
+        return {
+            "total_notes": total_notes,
+            "melody_notes": len(melody.notes),
+            "harmony_notes": len(harmony.notes),
+            "bass_notes": len(bass.notes),
+            "melody_percentage": len(melody.notes) / total_notes * 100,
+            "harmony_percentage": len(harmony.notes) / total_notes * 100,
+            "bass_percentage": len(bass.notes) / total_notes * 100,
+            "melody_range": melody_range,
+            "harmony_range": harmony_range,
+            "bass_range": bass_range,
+            "melody_avg_pitch": (
+                np.mean([n.pitch for n in melody.notes]) if melody.notes else 0
+            ),
+            "harmony_avg_pitch": (
+                np.mean([n.pitch for n in harmony.notes]) if harmony.notes else 0
+            ),
+            "bass_avg_pitch": (
+                np.mean([n.pitch for n in bass.notes]) if bass.notes else 0
+            ),
+        }
+
+    def get_voice_contour(
+        self, notes: List[Note], resolution: float = 0.25
+    ) -> np.ndarray:
+        """
+        Extract pitch contour of a voice over time.
+
+        Args:
+            notes: Notes in the voice
+            resolution: Time resolution in seconds
+
+        Returns:
+            Array of pitches over time
+        """
+        if not notes:
+            return np.array([])
+
+        duration = max(n.end for n in notes)
+        num_frames = int(duration / resolution) + 1
+        contour = np.zeros(num_frames)
+
+        for frame in range(num_frames):
+            time = frame * resolution
+            # Find active notes at this time
+            active = [n for n in notes if n.start <= time < n.end]
+            if active:
+                # Use highest pitch if multiple notes
+                contour[frame] = max(n.pitch for n in active)
+
+        return contour
+
+    def detect_voice_crossings(self, piano_roll: PianoRoll) -> List[dict]:
+        """
+        Detect when voices cross (bass goes above melody, etc.).
+        These usually indicate separation errors.
+
+        Args:
+            piano_roll: PianoRoll to analyze
+
+        Returns:
+            List of crossing events
+        """
+        melody, harmony, bass = self.separate_voices(piano_roll)
+        crossings = []
+
+        # Check melody-bass crossings
+        for m_note in melody.notes:
+            for b_note in bass.notes:
+                # Check if they overlap in time
+                if not (m_note.end <= b_note.start or b_note.end <= m_note.start):
+                    # Check if bass is higher than melody
+                    if b_note.pitch > m_note.pitch:
+                        crossings.append(
+                            {
+                                "time": m_note.start,
+                                "type": "melody-bass crossing",
+                                "melody_pitch": m_note.pitch,
+                                "bass_pitch": b_note.pitch,
+                            }
+                        )
+
+        return crossings
+
+
+def separate_voices(piano_roll: PianoRoll) -> Tuple[PianoRoll, PianoRoll, PianoRoll]:
+    """
+    Convenience function to separate voices in a piano roll.
+
+    Args:
+        piano_roll: PianoRoll to separate
+
+    Returns:
+        Tuple of (melody_roll, harmony_roll, bass_roll)
+    """
+    separator = VoiceSeparator()
+    return separator.separate_voices(piano_roll)
+
