@@ -218,3 +218,119 @@ def plot_pitch_contours(separator, melody, harmony, bass):
     
     plt.tight_layout()
     plt.show()
+
+def analyze_voice_separation(midi_path: str, quantize_first: bool = False):
+    """
+    Load MIDI, separate voices, and analyze.
+    
+    Args:
+        midi_path: Path to MIDI file
+        quantize_first: Whether to quantize before separation
+    """
+    print(f"\n{'='*70}")
+    print(f"Voice Separation Analysis")
+    print(f"{'='*70}")
+    print(f"File: {Path(midi_path).name}")
+    print(f"Quantize First: {quantize_first}")
+    
+    # Load MIDI
+    print("\n--- Loading MIDI ---")
+    piano_roll = load_midi(midi_path)
+    
+    # Optional quantization
+    if quantize_first:
+        print("Quantizing timing...")
+        piano_roll = quantize_piano_roll(piano_roll, grid_resolution='16th')
+    
+    # Separate voices
+    print("\n--- Separating Voices ---")
+    separator = VoiceSeparator()
+    melody, harmony, bass = separator.separate_voices(piano_roll)
+    
+    print(f"✓ Separated into {len(melody.notes)} melody notes, "
+          f"{len(harmony.notes)} harmony notes, {len(bass.notes)} bass notes")
+    
+    # Analyze statistics
+    print("\n--- Voice Statistics ---")
+    stats = separator.analyze_voices(piano_roll)
+    
+    print(f"Total Notes: {stats['total_notes']}")
+    print(f"\nMelody:")
+    print(f"  Notes: {stats['melody_notes']} ({stats['melody_percentage']:.1f}%)")
+    print(f"  Pitch Range: {stats['melody_range'][0]}-{stats['melody_range'][1]}")
+    if stats['melody_avg_pitch'] > 0:
+        print(f"  Average Pitch: {stats['melody_avg_pitch']:.1f}")
+    
+    print(f"\nHarmony:")
+    print(f"  Notes: {stats['harmony_notes']} ({stats['harmony_percentage']:.1f}%)")
+    print(f"  Pitch Range: {stats['harmony_range'][0]}-{stats['harmony_range'][1]}")
+    if stats['harmony_avg_pitch'] > 0:
+        print(f"  Average Pitch: {stats['harmony_avg_pitch']:.1f}")
+    
+    print(f"\nBass:")
+    print(f"  Notes: {stats['bass_notes']} ({stats['bass_percentage']:.1f}%)")
+    print(f"  Pitch Range: {stats['bass_range'][0]}-{stats['bass_range'][1]}")
+    if stats['bass_avg_pitch'] > 0:
+        print(f"  Average Pitch: {stats['bass_avg_pitch']:.1f}")
+    
+    # Check for voice crossings
+    print("\n--- Voice Crossing Detection ---")
+    crossings = separator.detect_voice_crossings(piano_roll)
+    if crossings:
+        print(f"⚠ Found {len(crossings)} voice crossings (potential separation issues)")
+        for crossing in crossings[:5]:  # Show first 5
+            print(f"  At {crossing['time']:.2f}s: {crossing['type']}")
+    else:
+        print("✓ No voice crossings detected")
+    
+    # Show first few notes of each voice
+    print("\n--- Sample Notes from Each Voice ---")
+    if melody.notes:
+        print(f"Melody (first 3): {melody.notes[:3]}")
+    if harmony.notes:
+        print(f"Harmony (first 3): {harmony.notes[:3]}")
+    if bass.notes:
+        print(f"Bass (first 3): {bass.notes[:3]}")
+    
+    # Visualizations
+    print("\n--- Generating Visualizations ---")
+    max_dur = min(10, piano_roll.get_duration())
+    
+    visualize_voice_separation(piano_roll, melody, harmony, bass, max_dur)
+    visualize_combined_voices(melody, harmony, bass, max_dur)
+    plot_pitch_contours(separator, melody, harmony, bass)
+    
+    return piano_roll, melody, harmony, bass
+
+
+def main():
+    """Main test function"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Test Voice Separator')
+    parser.add_argument('midi_file', help='Path to MIDI file')
+    parser.add_argument('-q', '--quantize', action='store_true',
+                       help='Quantize timing before voice separation')
+    
+    args = parser.parse_args()
+    
+    # Check file exists
+    if not Path(args.midi_file).exists():
+        print(f"❌ File not found: {args.midi_file}")
+        return 1
+    
+    try:
+        analyze_voice_separation(args.midi_file, args.quantize)
+        
+        print("\n✅ Voice separation test completed successfully!")
+        return 0
+        
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
