@@ -17,6 +17,13 @@ from .hand_assigner import HandAssigner, HandAssignmentConfig, Hand, assign_hand
 
 from .musicxml_exporter import MusicXMLExporter, export_to_musicxml
 
+from .difficulty_adjuster import (
+    DifficultyAdjuster,
+    DifficultyConfig,
+    DifficultyLevel,
+    adjust_difficulty
+)
+
 __all__ = [
     # Data structures
     "Note",
@@ -49,4 +56,9 @@ __all__ = [
     # MusicXML Exporter
     "MusicXMLExporter",
     "export_to_musicxml",
+    # Difficulty Adjuster
+    'DifficultyAdjuster',
+    'DifficultyConfig',
+    'DifficultyLevel',
+    'adjust_difficulty',
 ]
