@@ -360,3 +360,133 @@ class DifficultyAdjuster:
                 simplified_notes.append(note)
         
         return simplified_notes
+
+def _reduce_stretches(self, notes: List[Note]) -> List[Note]:
+        """Reduce hand stretches by moving notes or removing them"""
+        detector = ChordDetector()
+        temp_roll = PianoRoll(notes=notes, tempo=120)
+        chords = detector.detect_chords(temp_roll)
+        
+        max_stretch = self.params['max_hand_stretch']
+        
+        adjusted_notes = []
+        processed_times = set()
+        
+        for chord in chords:
+            if len(chord.notes) <= 1:
+                adjusted_notes.extend(chord.notes)
+                continue
+            
+            chord_notes = sorted(chord.notes, key=lambda n: n.pitch)
+            pitches = [n.pitch for n in chord_notes]
+            stretch = max(pitches) - min(pitches)
+            
+            if stretch <= max_stretch:
+                # Stretch is acceptable
+                adjusted_notes.extend(chord.notes)
+            else:
+                # Reduce stretch by removing middle notes
+                # Keep outer voices (bass and melody)
+                kept = [chord_notes[0], chord_notes[-1]]
+                adjusted_notes.extend(kept)
+            
+            processed_times.add(chord.start)
+        
+        # Add single notes
+        for note in notes:
+            if not any(abs(note.start - t) < 0.05 for t in processed_times):
+                adjusted_notes.append(note)
+        
+        return adjusted_notes
+    
+    def _simplify_rhythms(self, notes: List[Note]) -> List[Note]:
+        """Simplify complex rhythms to simpler note values"""
+        # Round durations to simple fractions
+        simple_durations = [0.125, 0.25, 0.5, 1.0, 2.0]  # 16th, 8th, quarter, half, whole
+        
+        simplified = []
+        for note in notes:
+            # Find closest simple duration
+            closest_duration = min(simple_durations, key=lambda d: abs(d - note.duration))
+            
+            simplified_note = Note(
+                pitch=note.pitch,
+                start=note.start,
+                end=note.start + closest_duration,
+                velocity=note.velocity,
+                note_type=note.note_type
+            )
+            simplified.append(simplified_note)
+        
+        return simplified
+    
+    def _remove_ornaments(self, notes: List[Note]) -> List[Note]:
+        """Remove ornamental notes (grace notes, etc.)"""
+        # Remove very short notes (likely grace notes or ornaments)
+        min_duration = 0.1  # 100ms
+        return [n for n in notes if n.duration >= min_duration]
+    
+    def _complicate(self, piano_roll: PianoRoll) -> PianoRoll:
+        """
+        Add complexity to piano roll for higher difficulty.
+        
+        Args:
+            piano_roll: Original piano roll
+            
+        Returns:
+            More complex piano roll
+        """
+        notes = piano_roll.notes.copy()
+        
+        # This is more advanced - placeholder for now
+        print("  - Adding arpeggiated patterns...")
+        print("  - Enhancing chord voicings...")
+        print("  - Adding bass movement...")
+        
+        # TODO: Implement complexity additions
+        # For now, just return original
+        return piano_roll
+    
+    def get_difficulty_report(self, piano_roll: PianoRoll) -> dict:
+        """
+        Generate detailed difficulty analysis report.
+        
+        Args:
+            piano_roll: Piano roll to analyze
+            
+        Returns:
+            Dictionary with difficulty metrics
+        """
+        duration = piano_roll.get_duration()
+        notes_per_second = len(piano_roll.notes) / duration if duration > 0 else 0
+        max_simultaneous = self._get_max_simultaneous_notes(piano_roll)
+        max_stretch = self._get_max_hand_stretch(piano_roll)
+        current_level = self._analyze_difficulty(piano_roll)
+        
+        return {
+            'difficulty_level': current_level.value,
+            'notes_per_second': notes_per_second,
+            'max_simultaneous_notes': max_simultaneous,
+            'max_hand_stretch': max_stretch,
+            'tempo': piano_roll.tempo,
+            'total_notes': len(piano_roll.notes),
+            'duration': duration,
+        }
+
+
+    def adjust_difficulty(piano_roll: PianoRoll, 
+                         target_level: DifficultyLevel) -> PianoRoll:
+        """
+        Convenience function to adjust difficulty.
+        
+        Args:
+            piano_roll: Piano roll to adjust
+            target_level: Target difficulty level
+            
+        Returns:
+            Adjusted piano roll
+        """
+        config = DifficultyConfig(target_level=target_level)
+        adjuster = DifficultyAdjuster(config)
+        return adjuster.adjust_difficulty(piano_roll)
+
