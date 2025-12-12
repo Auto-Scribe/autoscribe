@@ -211,3 +211,89 @@ class DifficultyAdjuster:
                 max_stretch = max(max_stretch, stretch)
         
         return max_stretch
+    def _simplify(self, piano_roll: PianoRoll) -> PianoRoll:
+        """
+        Simplify piano roll for lower difficulty.
+        
+        Args:
+            piano_roll: Original piano roll
+            
+        Returns:
+            Simplified piano roll
+        """
+        notes = piano_roll.notes.copy()
+        
+        # Step 1: Remove very fast passages
+        if self.config.remove_fast_passages:
+            print("  - Removing fast passages...")
+            notes = self._remove_fast_notes(notes)
+        
+        # Step 2: Simplify chords
+        if self.config.simplify_chords:
+            print("  - Simplifying chords...")
+            notes = self._simplify_chord_voicings(notes)
+        
+        # Step 3: Reduce hand stretches
+        if self.config.reduce_hand_stretches:
+            print("  - Reducing hand stretches...")
+            notes = self._reduce_stretches(notes)
+        
+        # Step 4: Simplify rhythms
+        if self.config.simplify_rhythms:
+            print("  - Simplifying rhythms...")
+            notes = self._simplify_rhythms(notes)
+        
+        # Step 5: Remove ornaments
+        if self.config.remove_ornaments:
+            print("  - Removing ornamental notes...")
+            notes = self._remove_ornaments(notes)
+        
+        return PianoRoll(
+            notes=notes,
+            tempo=min(piano_roll.tempo, self.params['max_tempo']),
+            time_signature=piano_roll.time_signature,
+            key_signature=piano_roll.key_signature
+        )
+    
+    def _remove_fast_notes(self, notes: List[Note]) -> List[Note]:
+        """Remove notes that are too fast for target level"""
+        if not notes:
+            return notes
+        
+        # Calculate note density in time windows
+        window_size = 1.0  # 1 second windows
+        max_notes = self.params['max_notes_per_second']
+        
+        # Group notes by time windows
+        sorted_notes = sorted(notes, key=lambda n: n.start)
+        kept_notes = []
+        
+        current_window_start = sorted_notes[0].start
+        current_window_notes = []
+        
+        for note in sorted_notes:
+            if note.start - current_window_start < window_size:
+                current_window_notes.append(note)
+            else:
+                # Process completed window
+                if len(current_window_notes) <= max_notes:
+                    kept_notes.extend(current_window_notes)
+                else:
+                    # Keep only the most important notes
+                    kept_notes.extend(self._select_important_notes(
+                        current_window_notes, int(max_notes)
+                    ))
+                
+                # Start new window
+                current_window_start = note.start
+                current_window_notes = [note]
+        
+        # Process last window
+        if len(current_window_notes) <= max_notes:
+            kept_notes.extend(current_window_notes)
+        else:
+            kept_notes.extend(self._select_important_notes(
+                current_window_notes, int(max_notes)
+            ))
+        
+        return kept_notes
