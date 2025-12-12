@@ -297,3 +297,66 @@ class DifficultyAdjuster:
             ))
         
         return kept_notes
+
+    def _select_important_notes(self, notes: List[Note], count: int) -> List[Note]:
+        """Select the most important notes from a group"""
+        # Prioritize by:
+        # 1. Velocity (louder = more important)
+        # 2. Duration (longer = more important)
+        # 3. Pitch extremes (highest/lowest)
+        
+        scored_notes = []
+        for note in notes:
+            score = (
+                note.velocity / 127.0 * 0.4 +
+                min(note.duration, 1.0) * 0.3 +
+                (1.0 if note.pitch == max(n.pitch for n in notes) or 
+                       note.pitch == min(n.pitch for n in notes) else 0.0) * 0.3
+            )
+            scored_notes.append((score, note))
+        
+        # Sort by score and take top N
+        scored_notes.sort(reverse=True, key=lambda x: x[0])
+        return [note for _, note in scored_notes[:count]]
+    
+    def _simplify_chord_voicings(self, notes: List[Note]) -> List[Note]:
+        """Simplify chord voicings to fewer notes"""
+        detector = ChordDetector()
+        temp_roll = PianoRoll(notes=notes, tempo=120)
+        chords = detector.detect_chords(temp_roll)
+        
+        max_chord_size = self.params['max_simultaneous_notes']
+        
+        simplified_notes = []
+        processed_times = set()
+        
+        for chord in chords:
+            if len(chord.notes) <= max_chord_size:
+                # Keep as is
+                simplified_notes.extend(chord.notes)
+            else:
+                # Simplify: keep root, highest note, and some middle notes
+                chord_notes = sorted(chord.notes, key=lambda n: n.pitch)
+                
+                # Always keep lowest and highest
+                kept = [chord_notes[0], chord_notes[-1]]
+                
+                # Add middle notes if space allows
+                remaining = max_chord_size - 2
+                if remaining > 0 and len(chord_notes) > 2:
+                    middle = chord_notes[1:-1]
+                    # Keep notes closest to melody (highest notes)
+                    middle.sort(key=lambda n: n.pitch, reverse=True)
+                    kept.extend(middle[:remaining])
+                
+                simplified_notes.extend(kept)
+            
+            # Mark these times as processed
+            processed_times.add(chord.start)
+        
+        # Add any notes that weren't part of chords
+        for note in notes:
+            if not any(abs(note.start - t) < 0.05 for t in processed_times):
+                simplified_notes.append(note)
+        
+        return simplified_notes
