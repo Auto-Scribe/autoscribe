@@ -113,3 +113,28 @@ def test_difficulty_adjustment(midi_path: str,
     print(f"Max Hand Stretch: {adjusted_report['max_hand_stretch']} semitones")
     print(f"Tempo: {adjusted_report['tempo']:.0f} BPM")
     print(f"Total Notes: {adjusted_report['total_notes']}")
+
+    # Show changes
+    print("\n--- Changes ---")
+    note_reduction = original_report['total_notes'] - adjusted_report['total_notes']
+    reduction_pct = (note_reduction / original_report['total_notes'] * 100) if original_report['total_notes'] > 0 else 0
+    
+    print(f"Notes removed: {note_reduction} ({reduction_pct:.1f}%)")
+    print(f"Tempo change: {original_report['tempo']:.0f} → {adjusted_report['tempo']:.0f} BPM")
+    
+    # Visualize
+    print("\n--- Generating Visualization ---")
+    visualize_difficulty_comparison(
+        original, adjusted,
+        f"Difficulty: {original_report['difficulty_level']} → {adjusted_report['difficulty_level']}"
+    )
+    
+    # Export if requested
+    if export_result:
+        output_path = Path(midi_path).stem + f"_{target_level.value}.musicxml"
+        print(f"\n--- Exporting to {output_path} ---")
+        export_to_musicxml(adjusted, output_path, 
+                          title=f"{Path(midi_path).stem} ({target_level.value})")
+        print(f"✓ Exported simplified version")
+    
+    return original, adjusted
