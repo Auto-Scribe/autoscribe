@@ -206,3 +206,44 @@ def compare_all_levels(midi_path: str):
     fig.suptitle('Difficulty Level Comparison', fontsize=14, fontweight='bold')
     plt.tight_layout()
     plt.show()
+
+def main():
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Test Difficulty Adjuster')
+    parser.add_argument('midi_file', help='Path to MIDI file')
+    parser.add_argument('-l', '--level', 
+                       choices=['beginner', 'easy', 'intermediate', 'advanced', 'expert'],
+                       default='beginner',
+                       help='Target difficulty level')
+    parser.add_argument('-e', '--export', action='store_true',
+                       help='Export adjusted version to MusicXML')
+    parser.add_argument('--compare-all', action='store_true',
+                       help='Compare all difficulty levels')
+    
+    args = parser.parse_args()
+    
+    # Check file exists
+    if not Path(args.midi_file).exists():
+        print(f"File not found: {args.midi_file}")
+        return 1
+    
+    try:
+        if args.compare_all:
+            compare_all_levels(args.midi_file)
+        else:
+            target_level = DifficultyLevel(args.level)
+            test_difficulty_adjustment(args.midi_file, target_level, args.export)
+        
+        print("\nDifficulty adjustment test completed successfully!")
+        return 0
+        
+    except Exception as e:
+        print(f"\nError: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
