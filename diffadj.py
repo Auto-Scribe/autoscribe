@@ -166,3 +166,43 @@ def compare_all_levels(midi_path: str):
         adjusted = adjuster.adjust_difficulty(original)
         report = adjuster.get_difficulty_report(adjusted)
         results.append((level, report, adjusted))
+
+        # Print comparison table
+    print(f"\n{'Level':<15} {'Notes':<10} {'Notes/s':<10} {'Max Chord':<12} {'Max Stretch':<12}")
+    print("-" * 70)
+    
+    for level, report, _ in results:
+        print(f"{level.value:<15} "
+              f"{report['total_notes']:<10} "
+              f"{report['notes_per_second']:<10.2f} "
+              f"{report['max_simultaneous_notes']:<12} "
+              f"{report['max_hand_stretch']:<12}")
+    
+    # Visualize all levels
+    fig, axes = plt.subplots(len(levels), 1, figsize=(14, 12), sharex=True)
+    max_duration = min(10, original.get_duration())
+    
+    for i, (level, report, adjusted) in enumerate(results):
+        ax = axes[i]
+        
+        for note in adjusted.notes:
+            if note.start < max_duration:
+                ax.add_patch(plt.Rectangle(
+                    (note.start, note.pitch), note.duration, 0.8,
+                    facecolor='steelblue', edgecolor='black',
+                    alpha=0.6, linewidth=0.5
+                ))
+        
+        pitch_range = original.get_pitch_range()
+        ax.set_ylim(pitch_range[0] - 2, pitch_range[1] + 2)
+        ax.set_ylabel('Pitch')
+        ax.set_title(f"{level.value.title()} ({report['total_notes']} notes)", 
+                    fontweight='bold')
+        ax.grid(True, alpha=0.3)
+    
+    axes[-1].set_xlabel('Time (seconds)')
+    axes[-1].set_xlim(0, max_duration)
+    
+    fig.suptitle('Difficulty Level Comparison', fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    plt.show()
