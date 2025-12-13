@@ -138,3 +138,31 @@ def test_difficulty_adjustment(midi_path: str,
         print(f"✓ Exported simplified version")
     
     return original, adjusted
+
+def compare_all_levels(midi_path: str):
+    """
+    Compare all difficulty levels side by side.
+    
+    Args:
+        midi_path: Path to MIDI file
+    """
+    print(f"\n{'='*70}")
+    print("Comparing All Difficulty Levels")
+    print(f"{'='*70}")
+    
+    original = load_midi(midi_path)
+    
+    levels = [
+        DifficultyLevel.BEGINNER,
+        DifficultyLevel.EASY,
+        DifficultyLevel.INTERMEDIATE,
+        DifficultyLevel.ADVANCED,
+    ]
+    
+    results = []
+    
+    for level in levels:
+        adjuster = DifficultyAdjuster(DifficultyConfig(target_level=level))
+        adjusted = adjuster.adjust_difficulty(original)
+        report = adjuster.get_difficulty_report(adjusted)
+        results.append((level, report, adjusted))
