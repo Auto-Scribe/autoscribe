@@ -83,3 +83,33 @@ def test_difficulty_adjustment(midi_path: str,
     print(f"{'='*70}")
     print(f"File: {Path(midi_path).name}")
     print(f"Target Level: {target_level.value}")
+        # Load original
+    print("\n--- Loading Original MIDI ---")
+    original = load_midi(midi_path)
+    
+    # Analyze original difficulty
+    print("\n--- Original Difficulty Analysis ---")
+    adjuster = DifficultyAdjuster(DifficultyConfig(target_level=target_level))
+    original_report = adjuster.get_difficulty_report(original)
+    
+    print(f"Current Level: {original_report['difficulty_level']}")
+    print(f"Notes per Second: {original_report['notes_per_second']:.2f}")
+    print(f"Max Simultaneous Notes: {original_report['max_simultaneous_notes']}")
+    print(f"Max Hand Stretch: {original_report['max_hand_stretch']} semitones")
+    print(f"Tempo: {original_report['tempo']:.0f} BPM")
+    print(f"Total Notes: {original_report['total_notes']}")
+    
+    # Adjust difficulty
+    print(f"\n--- Adjusting to {target_level.value.upper()} ---")
+    adjusted = adjuster.adjust_difficulty(original)
+    
+    # Analyze adjusted difficulty
+    print("\n--- Adjusted Difficulty Analysis ---")
+    adjusted_report = adjuster.get_difficulty_report(adjusted)
+    
+    print(f"New Level: {adjusted_report['difficulty_level']}")
+    print(f"Notes per Second: {adjusted_report['notes_per_second']:.2f}")
+    print(f"Max Simultaneous Notes: {adjusted_report['max_simultaneous_notes']}")
+    print(f"Max Hand Stretch: {adjusted_report['max_hand_stretch']} semitones")
+    print(f"Tempo: {adjusted_report['tempo']:.0f} BPM")
+    print(f"Total Notes: {adjusted_report['total_notes']}")
